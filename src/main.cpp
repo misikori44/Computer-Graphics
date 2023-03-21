@@ -78,7 +78,11 @@ void ProgramState::SaveToFile(std::string filename) {
         << camera.Position.z << '\n'
         << camera.Front.x << '\n'
         << camera.Front.y << '\n'
-        << camera.Front.z << '\n';
+        << camera.Front.z << '\n'
+        << backpackPosition.x << '\n'
+        << backpackPosition.y << '\n'
+        << backpackPosition.z << '\n'
+        << backpackScale << '\n';
 }
 
 void ProgramState::LoadFromFile(std::string filename) {
@@ -93,7 +97,11 @@ void ProgramState::LoadFromFile(std::string filename) {
            >> camera.Position.z
            >> camera.Front.x
            >> camera.Front.y
-           >> camera.Front.z;
+           >> camera.Front.z
+           >> backpackPosition.x
+           >> backpackPosition.y
+           >> backpackPosition.z
+           >> backpackScale;
     }
 }
 
@@ -165,7 +173,7 @@ int main() {
 
     // load models
     // -----------
-    Model ourModel("resources/objects/backpack/backpack.obj");
+    Model ourModel("resources/objects/battleship_1/star-wars-x-wing.obj");
     ourModel.SetShaderTextureNamePrefix("material.");
 
     PointLight& pointLight = programState->pointLight;
