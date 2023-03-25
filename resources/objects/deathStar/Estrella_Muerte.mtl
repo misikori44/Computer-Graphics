@@ -1,0 +1,33 @@
+#
+## Alias OBJ Material File
+# Exported from SketchUp, (c) 2000-2006 Google, Inc.
+
+newmtl M_2___Default1
+Ka 0.000000 0.000000 0.000000
+Kd 0.584314 0.584314 0.584314
+Ks 0.330000 0.330000 0.330000
+
+newmtl M_8___Default1
+Ka 0.000000 0.000000 0.000000
+Kd 0.611765 0.611765 0.611765
+Ks 0.330000 0.330000 0.330000
+map_Kd Estrella_Muerte/M_8___Default1.JPG
+
+newmtl M_7___Default1
+Ka 0.000000 0.000000 0.000000
+Kd 0.611765 0.611765 0.611765
+Ks 0.330000 0.330000 0.330000
+map_Kd Estrella_Muerte/M_7___Default1.JPG
+
+newmtl M_3___Default1
+Ka 0.000000 0.000000 0.000000
+Kd 0.541176 0.541176 0.541176
+Ks 0.330000 0.330000 0.330000
+map_Kd Estrella_Muerte/M_3___Default1.JPG
+
+newmtl M_1___Default1
+Ka 0.000000 0.000000 0.000000
+Kd 0.423529 0.423529 0.423529
+Ks 0.330000 0.330000 0.330000
+map_Kd Estrella_Muerte/M_1___Default1.JPG
+
