@@ -29,7 +29,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 unsigned int loadCubemap(vector<std::string> faces);
 unsigned int loadTexture(const char *path);
 // settings
-const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_WIDTH = 1100;
 const unsigned int SCR_HEIGHT = 600;
 
 // camera
@@ -64,6 +64,7 @@ struct ProgramState {
     PointLight pointLight;
     ProgramState()
             : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
+//              : camera() {}
 
     void SaveToFile(std::string filename);
 
@@ -138,7 +139,7 @@ int main() {
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetKeyCallback(window, key_callback);
     // tell GLFW to capture our mouse
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
     // glad: load all OpenGL function pointers
     // ---------------------------------------
@@ -147,8 +148,6 @@ int main() {
         return -1;
     }
 
-    // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    stbi_set_flip_vertically_on_load(true);
 
     programState = new ProgramState;
     programState->LoadFromFile("resources/program_state.txt");
@@ -173,14 +172,17 @@ int main() {
 
     // Shaders: load and configure
     // -------------------------
-    Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
+    Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader shader("resources/shaders/cubemap.vs", "resources/shaders/cubemap.fs");
+    Shader halconShader("resources/shaders/halcon.vs", "resources/shaders/halcon.fs");
+
 
     float skyboxVertices[] = {
             // aPos
             -1.0f,  1.0f, -1.0f,
             -1.0f, -1.0f, -1.0f,
-            1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f,  -1.0f,
             1.0f, -1.0f, -1.0f,
             1.0f,  1.0f, -1.0f,
             -1.0f,  1.0f, -1.0f,
@@ -236,35 +238,42 @@ int main() {
 
     // order for skybox: x+, x-, y+, y-, z+, z-
     vector<std::string> faces{
-        FileSystem::getPath("resources/textures/skybox2/1.png"),
-        FileSystem::getPath("resources/textures/skybox2/2.png"),
-        FileSystem::getPath("resources/textures/skybox2/3.png"),
-        FileSystem::getPath("resources/textures/skybox2/4.png"),
-        FileSystem::getPath("resources/textures/skybox2/5.png"),
-        FileSystem::getPath("resources/textures/skybox2/6.png")
+        FileSystem::getPath("resources/textures/galaxy/galaxy+X.tga"),
+        FileSystem::getPath("resources/textures/galaxy/galaxy-X.tga"),
+        FileSystem::getPath("resources/textures/galaxy/galaxy+Y.tga"),
+        FileSystem::getPath("resources/textures/galaxy/galaxy-Y.tga"),
+        FileSystem::getPath("resources/textures/galaxy/galaxy+Z.tga"),
+        FileSystem::getPath("resources/textures/galaxy/galaxy-Z.tga")
     };
+    // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
+    stbi_set_flip_vertically_on_load(true);
 
     unsigned int cubemapTexture = loadCubemap(faces);
 
     // configure shaders
+
+    shader.use();
+    shader.setInt("Tex", 0);
 
     skyboxShader.use();
     skyboxShader.setInt("skyboxTex", 0);
 
     // load and configure models.
     // -----------
+    Model deathStar("resources/objects/planet/planet.obj");
+    deathStar.SetShaderTextureNamePrefix("material.");
     Model shipHalcon("resources/objects/halcon/Halcon_Milenario.obj");
     shipHalcon.SetShaderTextureNamePrefix("material.");
 
     PointLight& pointLight = programState->pointLight;
-    pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
-    pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
-    pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
+    pointLight.position = glm::vec3(4.0f, 4.0, 1.0);
+    pointLight.ambient = glm::vec3(0.4, 0.4, 0.4);
+    pointLight.diffuse = glm::vec3(10.0, 10.0, 10.0);
     pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
 
     pointLight.constant = 1.0f;
-    pointLight.linear = 0.09f;
-    pointLight.quadratic = 0.032f;
+    pointLight.linear = 0.07f;
+    pointLight.quadratic = 0.32f;
 
 
 
@@ -301,7 +310,25 @@ int main() {
         ourShader.setFloat("pointLight.linear", pointLight.linear);
         ourShader.setFloat("pointLight.quadratic", pointLight.quadratic);
         ourShader.setVec3("viewPosition", programState->camera.Position);
-        ourShader.setFloat("material.shininess", 32.0f);
+        ourShader.setFloat("material.shininess", 2.0f);
+
+        ourShader.use();
+
+//        ourShader.setVec3("dirLight.direction", 15.0f, -15.0f, 4.3f);
+//        ourShader.setVec3("dirLight.ambient", 0.15f, 0.15f, 0.15f);
+//        ourShader.setVec3("dirLight.diffuse", 1.8f, 1.4f, 1.4f);
+//        ourShader.setVec3("dirLight.specular", 2.5f, 2.5f, 2.5f);
+
+        halconShader.use();
+        halconShader.setVec3("pointLight.position", pointLight.position);
+        halconShader.setVec3("pointLight.ambient", pointLight.ambient);
+        halconShader.setVec3("pointLight.diffuse", pointLight.diffuse);
+        halconShader.setVec3("pointLight.specular", pointLight.specular);
+        halconShader.setFloat("pointLight.constant", 1.0f);
+        halconShader.setFloat("pointLight.linear", pointLight.linear);
+        halconShader.setFloat("pointLight.quadratic", 0.07f);
+        halconShader.setVec3("viewPosition", programState->camera.Position);
+        halconShader.setFloat("material.shininess", 4.0f);
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
@@ -309,26 +336,46 @@ int main() {
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
 
-        // render the loaded model
+//        shader.use();
         glm::mat4 model = glm::mat4(1.0f);
+//        shader.setMat4("model", model);
+//        shader.setMat4("projection", projection);
+//        shader.setMat4("view", view);
+
+
+        // render the loaded model
+        model = glm::mat4(1.0f);
         model = glm::translate(model,
                                programState->backpackPosition); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
+//        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
+        model = glm::scale(model, glm::vec3(0.01f));
+        halconShader.setMat4("model", model);
+        shipHalcon.Draw(halconShader);
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(30.0f));
+        model = glm::scale(model, glm::vec3(0.2f));
         ourShader.setMat4("model", model);
-        shipHalcon.Draw(ourShader);
+        deathStar.Draw(ourShader);
 
         //draw skybox as last
+        glDepthMask(GL_FALSE);
         glDepthFunc(GL_LEQUAL);
         skyboxShader.use();
+        model = glm::mat4(1.0f);
+        projection = glm::perspective(glm::radians(programState->camera.Zoom),
+                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
         view = glm::mat4(glm::mat3(programState->camera.GetViewMatrix()));
         skyboxShader.setMat4("view", view);
         skyboxShader.setMat4("projection", projection);
+
         // skybox cube
         glBindVertexArray(skyboxVAO);
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
+        glDepthMask(GL_TRUE);
         glDepthFunc(GL_LESS); //depth function back to normal state.
 
         if (programState->ImGuiEnabled)
@@ -413,10 +460,10 @@ void DrawImGui(ProgramState *programState) {
         static float f = 0.0f;
         ImGui::Begin("Hello window");
         ImGui::Text("Hello text");
-        ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
+//        ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
+        ImGui::DragFloat3("Model position", (float*)&programState->backpackPosition);
+        ImGui::DragFloat("Model scale", &programState->backpackScale, 0.05, 0.1, 4.0);
 
         ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
         ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
@@ -445,7 +492,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             programState->CameraMouseMovementUpdateEnabled = false;
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         } else {
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
     }
 
@@ -482,6 +529,5 @@ unsigned int loadCubemap(vector<std::string> faces)
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-
     return textureID;
 }
