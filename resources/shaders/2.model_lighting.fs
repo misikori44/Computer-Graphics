@@ -27,6 +27,7 @@ struct Material {
 
     float shininess;
 };
+
 in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
@@ -54,10 +55,10 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
     // combine results
     vec3 ambient = light.ambient * vec3(texture(material.texture_diffuse1, TexCoords));
     vec3 diffuse = light.diffuse * diff * vec3(texture(material.texture_diffuse1, TexCoords));
-    vec3 specular = light.specular * spec * vec3(texture(material.texture_specular1, TexCoords).xxx);
+    vec3 specular = light.specular * spec * vec3(texture(material.texture_specular1, TexCoords).xyz);
     ambient *= attenuation;
-    diffuse *= attenuation * 2.0f;
-    specular *= attenuation * 1.5f;
+    diffuse *= attenuation;
+    specular *= attenuation;
     return (ambient + diffuse + specular);
 }
 
