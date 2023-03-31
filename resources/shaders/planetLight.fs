@@ -27,6 +27,7 @@ in vec3 FragPos;
 in vec3 Normal;
 
 uniform sampler2D tex;
+uniform bool blinn;
 uniform vec3 lightPos;
 uniform vec3 viewPos;
 uniform DirLight dirLight;
@@ -47,8 +48,17 @@ void main()
     vec3 reflectDir = reflect(-lightDir, normal);
     float spec = 0.0;
 
-    spec = pow(max(dot(viewDir, reflectDir), 0.0), 8.0);
+    if(blinn){
 
+        vec3 halfwayDir = normalize(lightDir + viewDir);
+        spec = pow(max(dot(normal, halfwayDir), 0.0), 32.0);
+
+    }
+    else{
+
+        spec = pow(max(dot(viewDir, reflectDir), 0.0), 8.0);
+
+    }
     vec3 ambient = dirLight.ambient * color; // let light.ambient = 0.42f;
     vec3 diffuse = dirLight.diffuse * diff * color;
     vec3 specular = dirLight.specular * spec * color;

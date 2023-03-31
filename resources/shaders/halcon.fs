@@ -39,6 +39,7 @@ uniform DirLight dirLight;
 uniform vec3 viewPosition;
 uniform Material material;
 uniform sampler2D shipTex;
+uniform bool blinn;
 
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir);
@@ -64,7 +65,16 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
     vec3 reflectDir = reflect(-lightDir, normal);
 
     float spec = 0.0f;
-    spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    if(blinn){
+
+        vec3 halfwayDir = normalize(lightDir + viewDir);
+        spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+
+    }else{
+
+        spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+
+    }
 
     // attenuation
     float distance = length(light.position - fragPos);

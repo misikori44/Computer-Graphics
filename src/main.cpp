@@ -34,7 +34,8 @@ const unsigned int SCR_HEIGHT = 600;
 
 // camera
 // rg camera better than openGL camera?
-
+bool blinn = false;
+float counter = 0;
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -56,7 +57,7 @@ struct PointLight {
 
 struct ProgramState {
     glm::vec3 clearColor = glm::vec3(0);
-    bool ImGuiEnabled = false;
+    bool ImGuiEnabled = true;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
     glm::vec3 backpackPosition = glm::vec3(0.0f);
@@ -86,7 +87,9 @@ void ProgramState::SaveToFile(std::string filename) {
         << backpackPosition.x << '\n'
         << backpackPosition.y << '\n'
         << backpackPosition.z << '\n'
-        << backpackScale << '\n';
+        << backpackScale << '\n'
+        << camera.Yaw << '\n'
+        << camera.Pitch << '\n';
 }
 
 void ProgramState::LoadFromFile(std::string filename) {
@@ -105,11 +108,14 @@ void ProgramState::LoadFromFile(std::string filename) {
            >> backpackPosition.x
            >> backpackPosition.y
            >> backpackPosition.z
-           >> backpackScale;
+           >> backpackScale
+           >> camera.Yaw
+           >> camera.Pitch;
     }
 }
 
 ProgramState *programState;
+
 
 void DrawImGui(ProgramState *programState);
 
@@ -176,7 +182,7 @@ int main() {
     // -------------------------
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
-    Shader shader("resources/shaders/cubemap.vs", "resources/shaders/cubemap.fs");
+//    Shader shader("resources/shaders/cubemap.vs", "resources/shaders/cubemap.fs");
     Shader halconShader("resources/shaders/halcon.vs", "resources/shaders/halcon.fs");
     Shader planetShader("resources/shaders/planetLight.vs", "resources/shaders/planetLight.fs");
 
@@ -239,7 +245,6 @@ int main() {
     // load textures.
     unsigned int planetTex = loadTexture("resources/objects/planet/texture planete 01.jpg");
 
-
     // order for skybox: x+, x-, y+, y-, z+, z-
     // 1 3 6 5 2 4 -> works for skybox2 :)
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
@@ -257,14 +262,11 @@ int main() {
 
     // configure shaders
 
-//    shader.use();
-//    shader.setInt("Tex", 0);
-
     skyboxShader.use();
     skyboxShader.setInt("skyboxTex", 0);
 
     planetShader.use();
-    planetShader.setInt("tex", 0);
+    planetShader.setInt("tex", 1);
 
     // load and configure models.
     // -----------
@@ -275,25 +277,26 @@ int main() {
 
     // TODO : fix later.
 
-    PointLight& pointLight = programState->pointLight; // for halcon
-    pointLight.position = glm::vec3(4.0f, 4.0, 1.0);
-    pointLight.ambient = glm::vec3(0.4, 0.4, 0.4);
-    pointLight.diffuse = glm::vec3(10.0, 10.0, 10.0);
-    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
-
-    pointLight.constant = 1.0f;
-    pointLight.linear = 0.07f;
-    pointLight.quadratic = 0.32f;
+//    PointLight& pointLight = programState->pointLight; // for halcon
+//    pointLight.position = glm::vec3(-3.0f, 0.0, 6.0);
+//    pointLight.position = planetPosition;
+//    pointLight.ambient = glm::vec3(0.44, 0.44, 0.44);
+//    pointLight.diffuse = glm::vec3(1.8f, 1.8f, 1.8f);
+//    pointLight.specular = glm::vec3(2.9f, 2.9f, 2.9f);
+//
+//    pointLight.constant = 1.0f;
+//    pointLight.linear = 0.07f;
+//    pointLight.quadratic = 0.32f;
 
     PointLight& planetLight = programState->pointLight; // for planet
     planetLight.position = glm::vec3(30.0f, 30.0f, 30.0f);
-    planetLight.ambient = glm::vec3(10.0f, 10.0f, 10.0f);
-    planetLight.diffuse = glm::vec3(150.0f, 150.0f, 150.0f);
-    planetLight.specular = glm::vec3(120.0f, 120.0f, 120.0f);
+    planetLight.ambient = glm::vec3(0.42f);
+    planetLight.diffuse = glm::vec3(0.39f);
+    planetLight.specular = glm::vec3(0.4f);
 
-    planetLight.constant = 1.0f;
-    planetLight.linear = 0.09f;
-    planetLight.quadratic = 0.032f;
+//    planetLight.constant = 1.0f;
+//    planetLight.linear = 0.09f;
+//    planetLight.quadratic = 0.032f;
 
 
     // draw in wireframe
@@ -320,56 +323,47 @@ int main() {
 
         // don't forget to enable shader before setting uniforms
 
-        // TODO: DELETE
+//        pointLight.ambient += glm::vec3(counter  * 0.002f);
+//        pointLight.diffuse += glm::vec3(counter  * 0.002f);
+//        pointLight.specular += glm::vec3(counter  * 0.002f);
 
-//        ourShader.use();
-////        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-//        planetLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-//        ourShader.setVec3("pointLight.position", planetLight.position);
-//        ourShader.setVec3("pointLight.ambient", planetLight.ambient);
-//        ourShader.setVec3("pointLight.diffuse", planetLight.diffuse);
-//        ourShader.setVec3("pointLight.specular", planetLight.specular);
-//        ourShader.setFloat("pointLight.constant", 1.0f);
-//        ourShader.setFloat("pointLight.linear", 0.09f);
-//        ourShader.setFloat("pointLight.quadratic", 0.32f);
-//        ourShader.setVec3("viewPosition", programState->camera.Position);
-//        ourShader.setFloat("material.shininess", 64.0f);
-//
-//        ourShader.use();
-//
-//        ourShader.setVec3("dirLight.direction", 15.0f, -15.0f, 4.3f);
-//        ourShader.setVec3("dirLight.ambient", 20.0f, 20.15f, 20.15f);
-//        ourShader.setVec3("dirLight.diffuse", 100.8f, 100.4f, 100.4f);
-//        ourShader.setVec3("dirLight.specular", 20.5f, 2.5f, 2.5f);
+        glm::vec3 halconPosition = glm::vec3(planetPosition.x + sin(-currentFrame/2)*40.0f, 26.5f, planetPosition.z + cos(-currentFrame/2) * 40.0f);
 
         glDepthFunc(GL_LESS);
+
         halconShader.use();
-        halconShader.setVec3("pointLight.position", programState->camera.Position);
-        halconShader.setVec3("pointLight.ambient", glm::vec3(0.4, 0.4, 0.4));
-        halconShader.setVec3("pointLight.diffuse", glm::vec3(10.0, 10.0, 10.0));
-        halconShader.setVec3("pointLight.specular", glm::vec3(2.0, 2.0, 3.0));
+//        halconShader.setVec3("pointLight.position", halconPosition);
+        halconShader.setVec3("pointLight.position", glm::vec3(7.0f * cos(currentFrame), 7.0f, 7.0f * sin(currentFrame)));
+        halconShader.setVec3("pointLight.ambient", glm::vec3(0.44f, 0.44f, 0.44f) + glm::vec3(counter * 0.05f));
+        halconShader.setVec3("pointLight.diffuse", glm::vec3(0.8f, 0.8f, 0.8f) + glm::vec3(counter * 0.05f));
+        halconShader.setVec3("pointLight.specular", glm::vec3(1.6f, 1.6f, 1.6f) + glm::vec3(counter * 0.05f));
         halconShader.setFloat("pointLight.constant", 1.0f);
         halconShader.setFloat("pointLight.linear", 0.07f);
-        halconShader.setFloat("pointLight.quadratic", 0.3f);
+        halconShader.setFloat("pointLight.quadratic", 0.032f);
         halconShader.setVec3("viewPosition", programState->camera.Position);
-        halconShader.setFloat("material.shininess", 68.0f);
+        halconShader.setFloat("material.shininess", 32.0f);
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
-                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 500.0f);
+                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 400.0f);
         glm::mat4 view = programState->camera.GetViewMatrix();
-        glm::mat4 model = glm::mat4(1.0f);
 
         // render the loaded model
-//        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
+        glm::mat4 model = glm::mat4(1.0f);
+//        model = glm::translate(model, halconPosition);
+//        model = glm::rotate(model, currentFrame / 4, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(0.015f));
+
         halconShader.use();
         halconShader.setMat4("projection", projection);
         halconShader.setMat4("view", view);
         halconShader.setMat4("model", model);
-        halconShader.setVec3("dirLight.direction", glm::vec3(1.0f));
-        halconShader.setVec3("dirLight.ambient", glm::vec3(0.3f));
-        halconShader.setVec3("dirLight.diffuse", glm::vec3(0.4f));
-        halconShader.setVec3("dirLight.specular", glm::vec3(0.4f));
+
+//        halconShader.setVec3("dirLight.direction", halconPosition);
+        halconShader.setVec3("dirLight.direction", planetPosition);
+        halconShader.setVec3("dirLight.ambient", glm::vec3(0.57f));
+        halconShader.setVec3("dirLight.diffuse", glm::vec3(0.75f));
+        halconShader.setVec3("dirLight.specular", glm::vec3(0.85f));
+        halconShader.setBool("blinn", blinn);
 
         glEnable(GL_CULL_FACE);
         glDepthFunc(GL_LESS);
@@ -379,37 +373,28 @@ int main() {
 
         model = glm::mat4(1.0f);
         model = glm::translate(model, planetPosition);
-        model = glm::scale(model, glm::vec3(0.15f));
+        model = glm::rotate(model, currentFrame / 4, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.27f));
 
-        glActiveTexture(GL_TEXTURE0);
+        glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, planetTex);
+
+        planetLight.diffuse += glm::vec3(counter * 0.0005f);
+        planetLight.ambient += glm::vec3(counter * 0.0005f);
 
         glDepthFunc(GL_LESS);
         planetShader.use();
-        planetShader.setVec3("dirLight.direction", 1.0f, -1.0f, 1.0f);
-        planetShader.setVec3("dirLight.ambient", 0.42f, 0.42f, 0.42f);
-        planetShader.setVec3("dirLight.diffuse", 0.35f, 0.35f, 0.35f);
-        planetShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
-//        planetShader.setVec3("pointLight.position", glm::vec3(0.0f));
-//        planetShader.setVec3("pointLight.ambient", glm::vec3(0.2f));
-//        planetShader.setVec3("pointLight.diffuse", glm::vec3(0.5f));
-//        planetShader.setVec3("pointLight.specular", glm::vec3(0.4f));
-//        planetShader.setFloat("pointLight.constant", 1.0f);
-//        planetShader.setFloat("pointLight.linear", 0.09f);
-//        planetShader.setFloat("pointLight.quadratic", 0.032f);
+        planetShader.setVec3("dirLight.direction", glm::vec3(planetPosition.x + sin(currentFrame), planetPosition.y, planetPosition.z + cos(currentFrame)));
+        planetShader.setVec3("dirLight.ambient", planetLight.ambient);
+        planetShader.setVec3("dirLight.diffuse", planetLight.diffuse);
+        planetShader.setVec3("dirLight.specular", planetLight.specular);
         planetShader.setVec3("viewPos", programState->camera.Position);
-        planetShader.setVec3("lightPos", glm::vec3(0.0f));
+//        planetShader.setVec3("lightPos", planetPosition);
+        planetShader.setBool("blinn", blinn);
         planetShader.setMat4("projection", projection);
         planetShader.setMat4("view", view);
         planetShader.setMat4("model", model);
-//        deathStar.Draw(ourShader);
         deathStar.Draw(planetShader);
-
-        shader.use();
-        shader.setMat4("projection", projection);
-        shader.setMat4("view", view);
-        shader.setMat4("model", model);
-
 
         //draw skybox as last
         glDepthFunc(GL_LEQUAL);
@@ -429,7 +414,7 @@ int main() {
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); //depth function back to normal state.
 
-        if (programState->ImGuiEnabled)
+//        if (programState->ImGuiEnabled)
             DrawImGui(programState);
 
 
@@ -507,20 +492,21 @@ void DrawImGui(ProgramState *programState) {
     ImGui::NewFrame();
 
 
-    {
-        static float f = 0.0f;
-        ImGui::Begin("Hello window");
-        ImGui::Text("Hello text");
-//        ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
-        ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Model position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Model scale", &programState->backpackScale, 0.05, 0.1, 4.0);
 
-        ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
-        ImGui::End();
-    }
+//    {
+//        static float f = 0.0f;
+//        ImGui::Begin("Hello window");
+//        ImGui::Text("Hello text");
+////        ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
+//        ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
+//        ImGui::DragFloat3("Model position", (float*)&programState->backpackPosition);
+//        ImGui::DragFloat("Model scale", &programState->backpackScale, 0.05, 0.1, 4.0);
+//
+//        ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
+//        ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
+//        ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
+//        ImGui::End();
+//    }
 
     {
         ImGui::Begin("Camera info");
@@ -530,6 +516,14 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Text("Camera front: (%f, %f, %f)", c.Front.x, c.Front.y, c.Front.z);
         ImGui::Checkbox("Camera mouse update", &programState->CameraMouseMovementUpdateEnabled);
         ImGui::End();
+    }
+
+    {
+        ImGui::Begin("Demolishing the DeathStar.");
+        ImGui::Text("Press X repeatedly to fire.");
+        ImGui::Text("B to turn on/off Blinn-Phong.");
+        ImGui::End();
+
     }
 
     ImGui::Render();
@@ -549,6 +543,27 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
     if(key == GLFW_KEY_R && action == GLFW_PRESS){
         programState->camera.Position = glm::vec3(1.0f, 1.0f, 1.0f);
+
+    }
+
+    if(key == GLFW_KEY_B && action == GLFW_PRESS){
+        blinn = !blinn;
+        if(blinn){
+            std::cerr << "Blinn" << "\n";
+        }
+        else{
+            std::cerr << "Phong" << "\n";
+        }
+    }
+
+    if(key == GLFW_KEY_X && action == GLFW_PRESS){
+        if(counter < 5) {
+            counter++;
+
+        }
+        else{
+            glfwSetWindowShouldClose(window, true);
+        }
 
     }
 }
