@@ -38,7 +38,7 @@ uniform PointLight pointLight;
 uniform DirLight dirLight;
 uniform vec3 viewPosition;
 uniform Material material;
-uniform sampler2D shipTex;
+// uniform sampler2D shipTex;
 uniform bool blinn;
 
 vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir);
@@ -51,8 +51,7 @@ void main()
    vec3 result = CalcDirLight(dirLight, normal, viewDir);
    result += CalcPointLight(pointLight, normal, FragPos, viewDir);
 
-   vec3 color = texture(shipTex, TexCoords).rgb;
-   FragColor = vec4(result * color, 1.0);
+   FragColor = vec4(result, 1.0);
 }
 
 
@@ -84,7 +83,7 @@ vec3 CalcPointLight(PointLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
     vec3 ambient = light.ambient * vec3(texture(material.texture_diffuse1, TexCoords));
     vec3 diffuse = light.diffuse * diff * vec3(texture(material.texture_diffuse1, TexCoords));
     vec3 specular = light.specular * spec * vec3(texture(material.texture_specular1, TexCoords).rgb);
-    ambient *= attenuation;
+    ambient *= attenuation *1.2f;
     diffuse *= attenuation;
     specular *= attenuation;
     return (ambient + diffuse + specular);

@@ -133,7 +133,7 @@ int main() {
 
     // glfw window creation
     // --------------------
-    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Space", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -244,17 +244,18 @@ int main() {
 
     // load textures.
     unsigned int planetTex = loadTexture("resources/objects/planet/texture planete 01.jpg");
+    unsigned int mTex = loadTexture("resources/objects/Moon/Moon.jpg");
 
     // order for skybox: x+, x-, y+, y-, z+, z-
-    // 1 3 6 5 2 4 -> works for skybox2 :)
+    // 1 3 6 5 2 4 -> works for skybox2 :) ; also for skybox1
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
     vector<std::string> faces{
-            FileSystem::getPath("resources/textures/skybox2/1.png"),
-            FileSystem::getPath("resources/textures/skybox2/3.png"),
-            FileSystem::getPath("resources/textures/skybox2/6.png"),
-            FileSystem::getPath("resources/textures/skybox2/5.png"),
-            FileSystem::getPath("resources/textures/skybox2/2.png"),
-            FileSystem::getPath("resources/textures/skybox2/4.png")
+            FileSystem::getPath("resources/textures/skybox1/1.png"),
+            FileSystem::getPath("resources/textures/skybox1/3.png"),
+            FileSystem::getPath("resources/textures/skybox1/6.png"),
+            FileSystem::getPath("resources/textures/skybox1/5.png"),
+            FileSystem::getPath("resources/textures/skybox1/2.png"),
+            FileSystem::getPath("resources/textures/skybox1/4.png")
     };
     stbi_set_flip_vertically_on_load(true);
 
@@ -270,33 +271,25 @@ int main() {
 
     // load and configure models.
     // -----------
-    Model deathStar("resources/objects/planet/planet.obj");
-    deathStar.SetShaderTextureNamePrefix("material.");
+    Model deathStar2("resources/objects/planet/planet.obj");
+    deathStar2.SetShaderTextureNamePrefix("material.");
     Model shipHalcon("resources/objects/halcon/Halcon_Milenario.obj");
     shipHalcon.SetShaderTextureNamePrefix("material.");
+    Model deathStar("resources/objects/Moon/Moon.obj");
+    deathStar.SetShaderTextureNamePrefix("material.");
 
     // TODO : fix later.
 
-//    PointLight& pointLight = programState->pointLight; // for halcon
-//    pointLight.position = glm::vec3(-3.0f, 0.0, 6.0);
-//    pointLight.position = planetPosition;
-//    pointLight.ambient = glm::vec3(0.44, 0.44, 0.44);
-//    pointLight.diffuse = glm::vec3(1.8f, 1.8f, 1.8f);
-//    pointLight.specular = glm::vec3(2.9f, 2.9f, 2.9f);
-//
-//    pointLight.constant = 1.0f;
-//    pointLight.linear = 0.07f;
-//    pointLight.quadratic = 0.32f;
 
     PointLight& planetLight = programState->pointLight; // for planet
     planetLight.position = glm::vec3(30.0f, 30.0f, 30.0f);
     planetLight.ambient = glm::vec3(0.42f);
     planetLight.diffuse = glm::vec3(0.39f);
-    planetLight.specular = glm::vec3(0.4f);
+    planetLight.specular = glm::vec3(2.7f);
 
-//    planetLight.constant = 1.0f;
-//    planetLight.linear = 0.09f;
-//    planetLight.quadratic = 0.032f;
+    planetLight.constant = 1.0f;
+    planetLight.linear = 0.07f;
+    planetLight.quadratic = 0.032f;
 
 
     // draw in wireframe
@@ -331,9 +324,10 @@ int main() {
 
         glDepthFunc(GL_LESS);
 
+        // render the ship.
         halconShader.use();
-//        halconShader.setVec3("pointLight.position", halconPosition);
-        halconShader.setVec3("pointLight.position", glm::vec3(7.0f * cos(currentFrame), 7.0f, 7.0f * sin(currentFrame)));
+        halconShader.setVec3("pointLight.position", glm::vec3(halconPosition.x, 32.0f, halconPosition.z));
+//        halconShader.setVec3("pointLight.position", glm::vec3(10.0f * cos(currentFrame), 7.0f, 10.0f * sin(currentFrame)));
         halconShader.setVec3("pointLight.ambient", glm::vec3(0.44f, 0.44f, 0.44f) + glm::vec3(counter * 0.05f));
         halconShader.setVec3("pointLight.diffuse", glm::vec3(0.8f, 0.8f, 0.8f) + glm::vec3(counter * 0.05f));
         halconShader.setVec3("pointLight.specular", glm::vec3(1.6f, 1.6f, 1.6f) + glm::vec3(counter * 0.05f));
@@ -347,10 +341,10 @@ int main() {
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 400.0f);
         glm::mat4 view = programState->camera.GetViewMatrix();
 
-        // render the loaded model
+        // make ship go round.
         glm::mat4 model = glm::mat4(1.0f);
-//        model = glm::translate(model, halconPosition);
-//        model = glm::rotate(model, currentFrame / 4, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::translate(model, halconPosition);
+        model = glm::rotate(model, currentFrame / 4, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(0.015f));
 
         halconShader.use();
@@ -359,7 +353,8 @@ int main() {
         halconShader.setMat4("model", model);
 
 //        halconShader.setVec3("dirLight.direction", halconPosition);
-        halconShader.setVec3("dirLight.direction", planetPosition);
+//        halconShader.setVec3("dirLight.direction", programState->camera.Position);
+//        halconShader.setVec3("dirLight.direction", glm::vec3(planetPosition.x + cos(currentFrame), planetPosition.y, planetPosition.z + sin(currentFrame)));
         halconShader.setVec3("dirLight.ambient", glm::vec3(0.57f));
         halconShader.setVec3("dirLight.diffuse", glm::vec3(0.75f));
         halconShader.setVec3("dirLight.specular", glm::vec3(0.85f));
@@ -371,30 +366,45 @@ int main() {
         shipHalcon.Draw(halconShader);
         glDisable(GL_CULL_FACE);
 
+        // render the deathstar.
+
         model = glm::mat4(1.0f);
         model = glm::translate(model, planetPosition);
-        model = glm::rotate(model, currentFrame / 4, glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(0.27f));
+        model = glm::rotate(model, currentFrame / 6, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(3.06f));
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, planetTex);
+//        glBindTexture(GL_TEXTURE_2D, mTex);
 
-        planetLight.diffuse += glm::vec3(counter * 0.0005f);
-        planetLight.ambient += glm::vec3(counter * 0.0005f);
+        planetLight.diffuse += glm::vec3(counter * 0.009f);
+        planetLight.ambient += glm::vec3(counter * 0.009f);
+        planetLight.specular += glm::vec3(counter * 0.009f);
 
         glDepthFunc(GL_LESS);
         planetShader.use();
-        planetShader.setVec3("dirLight.direction", glm::vec3(planetPosition.x + sin(currentFrame), planetPosition.y, planetPosition.z + cos(currentFrame)));
-        planetShader.setVec3("dirLight.ambient", planetLight.ambient);
-        planetShader.setVec3("dirLight.diffuse", planetLight.diffuse);
-        planetShader.setVec3("dirLight.specular", planetLight.specular);
+        planetShader.setVec3("dirLight.direction", glm::vec3(planetPosition.x + cos(currentFrame), planetPosition.y, planetPosition.z + sin(currentFrame)));
+        planetShader.setVec3("dirLight.ambient", glm::vec3(0.42f) + glm::vec3(counter * 0.17f));
+        planetShader.setVec3("dirLight.diffuse", glm::vec3(0.65f) + glm::vec3(counter * 0.17f));
+        planetShader.setVec3("dirLight.specular", glm::vec3(0.85f));
+
+        planetShader.setVec3("pointLight.position", glm::vec3(halconPosition.x, 32.0f, halconPosition.z));
+        planetShader.setVec3("pointLight.ambient", planetLight.ambient);
+        planetShader.setVec3("pointLight.diffuse", planetLight.diffuse);
+        planetShader.setVec3("pointLight.specular", planetLight.specular);
+        planetShader.setFloat("pointLight.constant", planetLight.constant);
+        planetShader.setFloat("pointLight.linear", planetLight.linear);
+        planetShader.setFloat("pointLight.quadratic", planetLight.quadratic);
         planetShader.setVec3("viewPos", programState->camera.Position);
 //        planetShader.setVec3("lightPos", planetPosition);
         planetShader.setBool("blinn", blinn);
         planetShader.setMat4("projection", projection);
         planetShader.setMat4("view", view);
         planetShader.setMat4("model", model);
+//        deathStar2.Draw(planetShader);
         deathStar.Draw(planetShader);
+        // render another planet?
+
 
         //draw skybox as last
         glDepthFunc(GL_LEQUAL);
@@ -492,22 +502,6 @@ void DrawImGui(ProgramState *programState) {
     ImGui::NewFrame();
 
 
-
-//    {
-//        static float f = 0.0f;
-//        ImGui::Begin("Hello window");
-//        ImGui::Text("Hello text");
-////        ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
-//        ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-//        ImGui::DragFloat3("Model position", (float*)&programState->backpackPosition);
-//        ImGui::DragFloat("Model scale", &programState->backpackScale, 0.05, 0.1, 4.0);
-//
-//        ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
-//        ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
-//        ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
-//        ImGui::End();
-//    }
-
     {
         ImGui::Begin("Camera info");
         const Camera& c = programState->camera;
@@ -563,6 +557,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         }
         else{
             glfwSetWindowShouldClose(window, true);
+            std::cerr << "Task completed." << '\n';
         }
 
     }
