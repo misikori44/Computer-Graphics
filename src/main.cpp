@@ -27,7 +27,10 @@ void processInput(GLFWwindow *window);
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 unsigned int loadCubemap(vector<std::string> faces);
-unsigned int loadTexture(const char *path);
+unsigned int loadTexture(const char *path, bool gammaCorrection);
+//unsigned int loadTexture(const char *path);
+void renderQuad();
+
 // settings
 const unsigned int SCR_WIDTH = 1200;
 const unsigned int SCR_HEIGHT = 600;
@@ -39,6 +42,14 @@ float counter = 0;
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
+
+
+bool hdr = true;
+bool hdrKeyPressed = false;
+bool bloom = false;
+bool bloomKeyPressed = false;
+float exposure = 1.2f;
+
 
 // timing
 float deltaTime = 0.0f;
@@ -56,12 +67,12 @@ struct PointLight {
 };
 
 struct ProgramState {
-    glm::vec3 clearColor = glm::vec3(0);
+    glm::vec3 clearColor = glm::vec3(0.72);
     bool ImGuiEnabled = true;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
-    glm::vec3 backpackPosition = glm::vec3(0.0f);
-    float backpackScale = 1.0f;
+    glm::vec3 objectPosition = glm::vec3(0.0f);
+    float Scale = 1.0f;
     PointLight pointLight;
     ProgramState()
             : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
@@ -84,10 +95,10 @@ void ProgramState::SaveToFile(std::string filename) {
         << camera.Front.x << '\n'
         << camera.Front.y << '\n'
         << camera.Front.z << '\n'
-        << backpackPosition.x << '\n'
-        << backpackPosition.y << '\n'
-        << backpackPosition.z << '\n'
-        << backpackScale << '\n'
+        << objectPosition.x << '\n'
+        << objectPosition.y << '\n'
+        << objectPosition.z << '\n'
+        << Scale << '\n'
         << camera.Yaw << '\n'
         << camera.Pitch << '\n';
 }
@@ -105,10 +116,10 @@ void ProgramState::LoadFromFile(std::string filename) {
            >> camera.Front.x
            >> camera.Front.y
            >> camera.Front.z
-           >> backpackPosition.x
-           >> backpackPosition.y
-           >> backpackPosition.z
-           >> backpackScale
+           >> objectPosition.x
+           >> objectPosition.y
+           >> objectPosition.z
+           >> Scale
            >> camera.Yaw
            >> camera.Pitch;
     }
@@ -181,10 +192,12 @@ int main() {
     // Shaders: load and configure
     // -------------------------
     Shader skyboxShader("resources/shaders/skybox.vs", "resources/shaders/skybox.fs");
-    Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
-//    Shader shader("resources/shaders/cubemap.vs", "resources/shaders/cubemap.fs");
     Shader halconShader("resources/shaders/halcon.vs", "resources/shaders/halcon.fs");
     Shader planetShader("resources/shaders/planetLight.vs", "resources/shaders/planetLight.fs");
+    Shader HdrShader("resources/shaders/hdr.vs", "resources/shaders/hdr.fs");
+//    Shader bloomShader("resources/shaders/bloom.vs", "resources/shaders/bloom.fs");
+    Shader blurShader("resources/shaders/blur.vs", "resources/shaders/blur.fs");
+
 
     float skyboxVertices[] = {
             // aPos
@@ -243,8 +256,8 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
     // load textures.
-    unsigned int planetTex = loadTexture("resources/objects/planet/texture planete 01.jpg");
-    unsigned int mTex = loadTexture("resources/objects/Moon/Moon.jpg");
+    unsigned int planetTex = loadTexture("resources/objects/planet/texture planete 01.jpg", true);
+    unsigned int mTex = loadTexture("resources/objects/Moon/Moon.jpg", true);
 
     // order for skybox: x+, x-, y+, y-, z+, z-
     // 1 3 6 5 2 4 -> works for skybox2 :) ; also for skybox1
@@ -261,13 +274,79 @@ int main() {
 
     unsigned int cubemapTexture = loadCubemap(faces);
 
+    // configure framebuffers.
+
+    unsigned int hdrFBO;
+    glGenFramebuffers(1, &hdrFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+    // create 2 floating point color buffers (1 for normal rendering, other for brightness threshold values)
+    unsigned int colorBuffers[2];
+    glGenTextures(2, colorBuffers);
+    for (unsigned int i = 0; i < 2; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D, colorBuffers[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);  // we clamp to the edge as the blur filter would otherwise sample repeated texture values!
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // attach texture to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, colorBuffers[i], 0);
+    }
+
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering
+    unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, attachments);
+    // finally check if framebuffer is complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // preparing blur.
+    unsigned int pingpongFBO[2];
+    unsigned int pingpongColorbuffers[2];
+    glGenFramebuffers(2, pingpongFBO);
+    glGenTextures(2, pingpongColorbuffers);
+    for (unsigned int i = 0; i < 2; i++)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
+        glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // we clamp to the edge as the blur filter would otherwise sample repeated texture values!
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongColorbuffers[i], 0);
+        // also check if framebuffers are complete (no need for depth buffer)
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "Framebuffer not complete!" << std::endl;
+    }
+
+
     // configure shaders
 
     skyboxShader.use();
     skyboxShader.setInt("skyboxTex", 0);
 
     planetShader.use();
-    planetShader.setInt("tex", 1);
+    planetShader.setInt("tex", 4);
+
+    HdrShader.use();
+    HdrShader.setInt("hdrBuffer", 0);
+    HdrShader.setInt("bloomBlur", 1);
+//
+    blurShader.use();
+    blurShader.setInt("image", 0);
+//
+//    bloomShader.use();
+//    bloomShader.setInt("bloomBlur", 1);
+
+
 
     // load and configure models.
     // -----------
@@ -289,7 +368,7 @@ int main() {
 
     planetLight.constant = 1.0f;
     planetLight.linear = 0.07f;
-    planetLight.quadratic = 0.032f;
+    planetLight.quadratic = 0.0016f;
 
 
     // draw in wireframe
@@ -312,6 +391,7 @@ int main() {
         // render
         // ------
         glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
+        glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // don't forget to enable shader before setting uniforms
@@ -373,7 +453,7 @@ int main() {
         model = glm::rotate(model, currentFrame / 6, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::scale(model, glm::vec3(3.06f));
 
-        glActiveTexture(GL_TEXTURE1);
+        glActiveTexture(GL_TEXTURE4);
         glBindTexture(GL_TEXTURE_2D, planetTex);
 //        glBindTexture(GL_TEXTURE_2D, mTex);
 
@@ -424,6 +504,42 @@ int main() {
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); //depth function back to normal state.
 
+//
+        // 2. blur
+        // --------------------------------------------------
+        bool horizontal = true, first_iteration = true;
+        unsigned int amount = 10;
+        blurShader.use();
+        for (unsigned int i = 0; i < amount; i++)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+            blurShader.setInt("horizontal", horizontal);
+            glBindTexture(GL_TEXTURE_2D, first_iteration ? colorBuffers[1] : pingpongColorbuffers[!horizontal]);  // bind texture of other framebuffer (or scene if first iteration)
+            renderQuad();
+            horizontal = !horizontal;
+            if (first_iteration)
+                first_iteration = false;
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+        // --------------------------------------------------------------------------------------------------------------------------
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//        bloomShader.use();
+        HdrShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[!horizontal]);
+        HdrShader.setBool("hdr", hdr);
+        HdrShader.setInt("bloom", bloom);
+//        bloomShader.setInt("bloom", bloom);
+//        bloomShader.setFloat("exposure", exposure);
+        HdrShader.setFloat("exposure", exposure);
+        renderQuad();
+
+
+
 //        if (programState->ImGuiEnabled)
             DrawImGui(programState);
 
@@ -461,6 +577,38 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS && !hdrKeyPressed)
+    {
+        hdr = !hdr;
+        hdrKeyPressed = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_RELEASE)
+    {
+        hdrKeyPressed = false;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS && !bloomKeyPressed)
+    {
+        bloom = !bloom;
+        bloomKeyPressed = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_RELEASE)
+    {
+        bloomKeyPressed = false;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    {
+        if (exposure > 0.0f)
+            exposure -= 0.005f;
+        else
+            exposure = 0.0f;
+    }
+    else if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    {
+        exposure += 0.005f;
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -502,20 +650,21 @@ void DrawImGui(ProgramState *programState) {
     ImGui::NewFrame();
 
 
-    {
-        ImGui::Begin("Camera info");
-        const Camera& c = programState->camera;
-        ImGui::Text("Camera position: (%f, %f, %f)", c.Position.x, c.Position.y, c.Position.z);
-        ImGui::Text("(Yaw, Pitch): (%f, %f)", c.Yaw, c.Pitch);
-        ImGui::Text("Camera front: (%f, %f, %f)", c.Front.x, c.Front.y, c.Front.z);
-        ImGui::Checkbox("Camera mouse update", &programState->CameraMouseMovementUpdateEnabled);
-        ImGui::End();
-    }
+//    {
+//        ImGui::Begin("Camera info");
+//        const Camera& c = programState->camera;
+//        ImGui::Text("Camera position: (%f, %f, %f)", c.Position.x, c.Position.y, c.Position.z);
+//        ImGui::Text("(Yaw, Pitch): (%f, %f)", c.Yaw, c.Pitch);
+//        ImGui::Text("Camera front: (%f, %f, %f)", c.Front.x, c.Front.y, c.Front.z);
+//        ImGui::Checkbox("Camera mouse update", &programState->CameraMouseMovementUpdateEnabled);
+//        ImGui::End();
+//    }
 
     {
-        ImGui::Begin("Demolishing the DeathStar.");
+        ImGui::Begin("Destroying the DeathStar.");
         ImGui::Text("Press X repeatedly to fire.");
         ImGui::Text("B to turn on/off Blinn-Phong.");
+        ImGui::Text("H to enable HDR; J to enable Bloom");
         ImGui::End();
 
     }
@@ -525,15 +674,15 @@ void DrawImGui(ProgramState *programState) {
 }
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
-        programState->ImGuiEnabled = !programState->ImGuiEnabled;
-        if (programState->ImGuiEnabled) {
-            programState->CameraMouseMovementUpdateEnabled = false;
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        } else {
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        }
-    }
+//    if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
+//        programState->ImGuiEnabled = !programState->ImGuiEnabled;
+//        if (programState->ImGuiEnabled) {
+//            programState->CameraMouseMovementUpdateEnabled = false;
+//            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+//        } else {
+//            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+//        }
+//    }
 
     if(key == GLFW_KEY_R && action == GLFW_PRESS){
         programState->camera.Position = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -542,17 +691,18 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
     if(key == GLFW_KEY_B && action == GLFW_PRESS){
         blinn = !blinn;
-        if(blinn){
-            std::cerr << "Blinn" << "\n";
-        }
-        else{
-            std::cerr << "Phong" << "\n";
-        }
+//        if(blinn){
+//            std::cerr << "Blinn" << "\n";
+//        }
+//        else{
+//            std::cerr << "Phong" << "\n";
+//        }
     }
 
     if(key == GLFW_KEY_X && action == GLFW_PRESS){
         if(counter < 5) {
             counter++;
+            exposure += 0.3f;
 
         }
         else{
@@ -593,6 +743,52 @@ unsigned int loadCubemap(vector<std::string> faces)
     return textureID;
 }
 
+unsigned int loadTexture(char const * path, bool gammaCorrection)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
+    if (data)
+    {
+        GLenum internalFormat;
+        GLenum dataFormat;
+        if (nrComponents == 1)
+        {
+            internalFormat = dataFormat = GL_RED;
+        }
+        else if (nrComponents == 3)
+        {
+            internalFormat = gammaCorrection ? GL_SRGB : GL_RGB;
+            dataFormat = GL_RGB;
+        }
+        else if (nrComponents == 4)
+        {
+            internalFormat = gammaCorrection ? GL_SRGB_ALPHA : GL_RGBA;
+            dataFormat = GL_RGBA;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, dataFormat, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
+    }
+    else
+    {
+        std::cout << "Texture failed to load at path:: " << path << std::endl;
+        stbi_image_free(data);
+    }
+
+    return textureID;
+}
+
 unsigned int loadTexture(char const * path)
 {
     unsigned int textureID;
@@ -628,4 +824,34 @@ unsigned int loadTexture(char const * path)
     }
 
     return textureID;
+}
+
+
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float quadVertices[] = {
+                // positions        // texture Coords
+                -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+                -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+                1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
 }
