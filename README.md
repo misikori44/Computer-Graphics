@@ -9,3 +9,4 @@ Tasteri Q i E za kontrolisanje exposure.
 
 # Video
 https://youtu.be/8Yg636TNcng
+*Malo je lošiji kvalitet zbog snimanja na VM*
