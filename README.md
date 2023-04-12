@@ -8,3 +8,4 @@ Kontrolisanje HDR efekta na taster H, Bloom efekta na taster J.
 Tasteri Q i E za kontrolisanje exposure.
 
 # Video
+https://youtu.be/8Yg636TNcng
