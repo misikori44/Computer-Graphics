@@ -32,8 +32,8 @@ unsigned int loadTexture(const char *path, bool gammaCorrection);
 void renderQuad();
 
 // settings
-const unsigned int SCR_WIDTH = 1200;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 1600;
+const unsigned int SCR_HEIGHT = 800;
 
 // camera
 // rg camera better than openGL camera?
@@ -279,7 +279,7 @@ int main() {
     unsigned int hdrFBO;
     glGenFramebuffers(1, &hdrFBO);
     glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
-    // create 2 floating point color buffers (1 for normal rendering, other for brightness threshold values)
+
     unsigned int colorBuffers[2];
     glGenTextures(2, colorBuffers);
     for (unsigned int i = 0; i < 2; i++)
@@ -288,9 +288,8 @@ int main() {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);  // we clamp to the edge as the blur filter would otherwise sample repeated texture values!
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        // attach texture to framebuffer
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, colorBuffers[i], 0);
     }
 
@@ -299,10 +298,8 @@ int main() {
     glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
-    // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering
     unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
     glDrawBuffers(2, attachments);
-    // finally check if framebuffer is complete
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -319,10 +316,10 @@ int main() {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // we clamp to the edge as the blur filter would otherwise sample repeated texture values!
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongColorbuffers[i], 0);
-        // also check if framebuffers are complete (no need for depth buffer)
+
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
             std::cout << "Framebuffer not complete!" << std::endl;
     }
@@ -400,7 +397,7 @@ int main() {
 //        pointLight.diffuse += glm::vec3(counter  * 0.002f);
 //        pointLight.specular += glm::vec3(counter  * 0.002f);
 
-        glm::vec3 halconPosition = glm::vec3(planetPosition.x + sin(-currentFrame/2)*40.0f, 26.5f, planetPosition.z + cos(-currentFrame/2) * 40.0f);
+        glm::vec3 halconPosition = glm::vec3(planetPosition.x + sin(-currentFrame/2)*41.0f, 26.5f, planetPosition.z + cos(-currentFrame/2) * 41.0f);
 
         glDepthFunc(GL_LESS);
 
@@ -412,7 +409,7 @@ int main() {
         halconShader.setVec3("pointLight.diffuse", glm::vec3(0.8f, 0.8f, 0.8f) + glm::vec3(counter * 0.05f));
         halconShader.setVec3("pointLight.specular", glm::vec3(1.6f, 1.6f, 1.6f) + glm::vec3(counter * 0.05f));
         halconShader.setFloat("pointLight.constant", 1.0f);
-        halconShader.setFloat("pointLight.linear", 0.07f);
+        halconShader.setFloat("pointLight.linear", 0.09f);
         halconShader.setFloat("pointLight.quadratic", 0.032f);
         halconShader.setVec3("viewPosition", programState->camera.Position);
         halconShader.setFloat("material.shininess", 32.0f);
@@ -578,25 +575,25 @@ void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
 
-    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS && !hdrKeyPressed)
-    {
-        hdr = !hdr;
-        hdrKeyPressed = true;
-    }
-    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_RELEASE)
-    {
-        hdrKeyPressed = false;
-    }
+//    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_PRESS && !hdrKeyPressed)
+//    {
+//        hdr = !hdr;
+//        hdrKeyPressed = true;
+//    }
+//    if (glfwGetKey(window, GLFW_KEY_H) == GLFW_RELEASE)
+//    {
+//        hdrKeyPressed = false;
+//    }
 
-    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS && !bloomKeyPressed)
-    {
-        bloom = !bloom;
-        bloomKeyPressed = true;
-    }
-    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_RELEASE)
-    {
-        bloomKeyPressed = false;
-    }
+//    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS && !bloomKeyPressed)
+//    {
+//        bloom = !bloom;
+//        bloomKeyPressed = true;
+//    }
+//    if (glfwGetKey(window, GLFW_KEY_J) == GLFW_RELEASE)
+//    {
+//        bloomKeyPressed = false;
+//    }
 
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
     {
@@ -662,9 +659,11 @@ void DrawImGui(ProgramState *programState) {
 
     {
         ImGui::Begin("Destroying the DeathStar.");
-        ImGui::Text("Press X repeatedly to fire.");
+        ImGui::Text("Press X repeatedly to fire (6 times to destroy).");
         ImGui::Text("B to turn on/off Blinn-Phong.");
         ImGui::Text("H to enable HDR; J to enable Bloom");
+        ImGui::Checkbox("HDR", &hdrKeyPressed);
+        ImGui::Checkbox("Bloom", &bloomKeyPressed);
         ImGui::End();
 
     }
@@ -710,6 +709,26 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             std::cerr << "Task completed." << '\n';
         }
 
+    }
+
+    if(key == GLFW_KEY_H && action == GLFW_PRESS){
+        hdr = true;
+        hdrKeyPressed = true;
+    }
+
+    if(key==GLFW_KEY_H && action == GLFW_RELEASE){
+        hdrKeyPressed = false;
+        hdr = false;
+    }
+
+    if(key == GLFW_KEY_J && action == GLFW_PRESS){
+        bloom = true;
+        bloomKeyPressed = true;
+    }
+
+    if(key == GLFW_KEY_J && action == GLFW_RELEASE){
+        bloom = false;
+        bloomKeyPressed = false;
     }
 }
 
