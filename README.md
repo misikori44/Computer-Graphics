@@ -1,5 +1,5 @@
 # Implementirane oblasti
-Grupa A - Cubemaps
+Grupa A - Cubemaps  
 Grupa B - HDR/Bloom
 
 # Komande
@@ -8,5 +8,5 @@ Kontrolisanje HDR efekta na taster H, Bloom efekta na taster J.
 Tasteri Q i E za kontrolisanje exposure.
 
 # Video
-https://youtu.be/8Yg636TNcng
+https://youtu.be/8Yg636TNcng  
 *Malo je lošiji kvalitet zbog snimanja na VM*
